@@ -4,19 +4,12 @@ metadata:
   name: flask-todo-ingress
   namespace: default
   annotations:
-    # Required for AWS ALB
+    # Required by AWS Load Balancer Controller
     kubernetes.io/ingress.class: alb
     alb.ingress.kubernetes.io/scheme: internet-facing
-
-    # Optional but recommended:
     alb.ingress.kubernetes.io/target-type: instance
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
-
-    # Health check customization (optional)
     alb.ingress.kubernetes.io/healthcheck-path: /
-    alb.ingress.kubernetes.io/healthcheck-port: traffic-port
-    alb.ingress.kubernetes.io/success-codes: "200,302"
-
 spec:
   rules:
     - http:
