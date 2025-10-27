@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         AWS_REGION   = 'ap-south-1'
-        CLUSTER_NAME = 'eksdemo1'                          // <-- Replace with your EKS cluster name if different
+        CLUSTER_NAME = 'eksdemo1'                          // <-- Replace if your EKS cluster name differs
         DOCKER_IMAGE = 'bhupal716/flask-todo:latest'
     }
 
@@ -19,7 +19,7 @@ pipeline {
         }
 
         /* ---------- LOGIN TO DOCKER HUB ---------- */
-        stage('Login to Docker Hub') {
+        stage('Login & Pull Image from Docker Hub') {
             steps {
                 withCredentials([usernamePassword(
                     credentialsId: 'dockerhub-creds',
@@ -38,8 +38,8 @@ pipeline {
             }
         }
 
-        /* ---------- DEPLOY TO EKS ---------- */
-        stage('Deploy to EKS') {
+        /* ---------- DEPLOY + VERIFY ON EKS ---------- */
+        stage('Deploy and Verify on EKS') {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-jenkins-creds']]) {
                     sh '''
@@ -55,24 +55,26 @@ pipeline {
                     kubectl apply -f k8s/service.yml
                     kubectl apply -f k8s/ingress.yml
 
+                    echo "============================"
                     echo "Waiting for rollout to complete..."
+                    echo "============================"
                     kubectl rollout status deployment/flask-todo-deployment
+
+                    echo "============================"
+                    echo "Verifying Deployment Status"
+                    echo "============================"
+                    kubectl get pods -o wide
+                    kubectl get svc
+                    echo "============================"
+                    echo "Ingress and ALB URL"
+                    echo "============================"
+                    kubectl get ingress -o wide
+                    echo ""
+                    echo "ALB External URL:"
+                    kubectl get ingress flask-todo-ingress -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+                    echo ""
                     '''
                 }
-            }
-        }
-
-        /* ---------- VERIFY DEPLOYMENT ---------- */
-        stage('Verify Deployment') {
-            steps {
-                sh '''
-                echo "============================"
-                echo "Verifying Deployment Status"
-                echo "============================"
-                kubectl get pods -o wide
-                kubectl get svc
-                kubectl get ingress
-                '''
             }
         }
     }
@@ -80,11 +82,9 @@ pipeline {
     post {
         success {
             echo "✅ Deployment completed successfully!"
-            sh 'kubectl get ingress'
         }
         failure {
             echo "❌ Deployment failed. Please check the Jenkins console logs."
         }
     }
 }
-
